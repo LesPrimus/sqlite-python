@@ -40,18 +40,24 @@ class SqliteParser:
         with self as db_file:
             db_file.seek(100, os.SEEK_SET) #skip db file header
             # -- page_header
-            page_type = struct.unpack(">b", db_file.read(1))[0]
-            free_block_start = struct.unpack(">H", db_file.read(2))[0]
-            number_of_cells = struct.unpack(">H", db_file.read(2))[0]
-            start_of_cell_content_area = struct.unpack(">H", db_file.read(2))[0]
-            number_of_fragments = struct.unpack(">b", db_file.read(1))[0]
-            right_most_pointer = struct.unpack(">HH", db_file.read(4))[0]
-            print(page_type)
-            print(free_block_start)
-            print(number_of_cells)
-            print(start_of_cell_content_area)
-            print(number_of_fragments)
-            print(right_most_pointer)
+            page_type, _, nr_cells, start_cell_content_area, _  = struct.unpack(">bHHHb", db_file.read(8))
+            print(page_type, nr_cells, start_cell_content_area)
+
+            offsets = sorted(struct.unpack(f">{nr_cells}H", db_file.read(nr_cells * 2)))
+            print(offsets)
+
+            # page_type = struct.unpack(">b", db_file.read(1))[0]
+            # free_block_start = struct.unpack(">H", db_file.read(2))[0]
+            # number_of_cells = struct.unpack(">H", db_file.read(2))[0]
+            # start_of_cell_content_area = struct.unpack(">H", db_file.read(2))[0]
+            # number_of_fragments = struct.unpack(">b", db_file.read(1))[0]
+            # right_most_pointer = struct.unpack(">HH", db_file.read(4))[0]
+            # print(page_type)
+            # print(free_block_start)
+            # print(number_of_cells)
+            # print(start_of_cell_content_area)
+            # print(number_of_fragments)
+            # print(right_most_pointer)
             # page_header =
             # [cell_count] = struct.unpack(">H", db_file.read(2))
             # offsets = struct.unpack(f">{cell_count}H", db_file.read(cell_count * 2))
