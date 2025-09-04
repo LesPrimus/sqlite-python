@@ -1,16 +1,21 @@
-import sys
+from argparse import ArgumentParser
+from pathlib import Path
 
-from dataclasses import dataclass
+from app.parser import SqliteParser
 
-# import sqlparse - available if you need it!
 
-database_file_path = sys.argv[1]
-command = sys.argv[2]
+def get_args():
+    parser = ArgumentParser()
+    parser.add_argument("database_file_path", type=Path)
+    parser.add_argument("command", choices=SqliteParser.AVAILABLE_COMMANDS, type=str)
+    return parser.parse_args()
 
-if command == ".dbinfo":
-    with open(database_file_path, "rb") as database_file:
-        database_file.seek(16)  # Skip the first 16 bytes of the header
-        page_size = int.from_bytes(database_file.read(2), byteorder="big")
-        print(f"database page size: {page_size}")
-else:
-    print(f"Invalid command: {command}")
+
+def main(*, database_file_path: Path, command: str):
+    parser = SqliteParser(database_file_path)
+    parser.handle_command(command)
+
+
+if __name__ == "__main__":
+    namespace = get_args()
+    main(database_file_path=namespace.database_file_path, command=namespace.command)
