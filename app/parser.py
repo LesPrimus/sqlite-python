@@ -1,8 +1,11 @@
 import os
 import struct
+from itertools import pairwise
 from os import PathLike
 
 __all__ = ["SqliteParser"]
+
+from pprint import pprint
 
 
 class SqliteParser:
@@ -38,13 +41,25 @@ class SqliteParser:
 
     def tables(self):
         with self as db_file:
-            db_file.seek(100, os.SEEK_SET) #skip db file header
-            # -- page_header
+            # -- file header
+            db_file.read(16)
+            page_size = struct.unpack(">H", db_file.read(2))[0]
+            db_file.read(82)
+
+            # -- page header
             page_type, _, nr_cells, start_cell_content_area, _  = struct.unpack(">bHHHb", db_file.read(8))
             print(page_type, nr_cells, start_cell_content_area)
 
-            offsets = sorted(struct.unpack(f">{nr_cells}H", db_file.read(nr_cells * 2)))
-            print(offsets)
+            cells = []
+            offsets = list(struct.unpack(f">{nr_cells}H", db_file.read(nr_cells * 2))) + [page_size]
+
+            for start, stop in pairwise(sorted(offsets)):
+                db_file.seek(start, os.SEEK_SET)
+                cells.append(db_file.read(stop - start))
+
+
+            for cell in cells:
+                print(cell)
 
             # page_type = struct.unpack(">b", db_file.read(1))[0]
             # free_block_start = struct.unpack(">H", db_file.read(2))[0]
