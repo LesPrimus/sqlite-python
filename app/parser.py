@@ -1,12 +1,8 @@
-import io
 import os
 import struct
-from itertools import pairwise
 from os import PathLike
 
 __all__ = ["SqliteParser"]
-
-from pprint import pprint
 
 
 class SqliteParser:
