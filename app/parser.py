@@ -1,5 +1,7 @@
+import io
 import os
 import struct
+from itertools import pairwise
 from os import PathLike
 
 __all__ = ["SqliteParser"]
@@ -11,6 +13,7 @@ class SqliteParser:
 
     def __init__(self, db_path: PathLike):
         self.file_object = db_path.open("rb")
+        self._tables_names = []
 
     def __enter__(self):
         self.file_object.__enter__()
@@ -80,11 +83,20 @@ class SqliteParser:
                 raise ValueError(f"Invalid serial type code: {n}")
 
     def decode_record(self, buffer):
-        print("---- RECORD HEADER----")
-        record_header_size = self.get_varint(buffer)
-        schema_type_size = self.get_serial_type_code(self.get_varint(buffer))
-        print(schema_type_size)
+        _record_header_size = self.get_varint(buffer)
+        st_schema_type = self.get_varint(buffer)
+        st_schema_name = self.get_varint(buffer)
+        st_schema_tbl_name = self.get_varint(buffer)
+        _st_schema_root_page = self.get_varint(buffer)
+        _st_schema_sql = self.get_varint(buffer)
+        buffer.read(self.get_serial_type_code(st_schema_type))
+        buffer.read(self.get_serial_type_code(st_schema_name))
+        self._tables_names.append(buffer.read(self.get_serial_type_code(st_schema_tbl_name)).decode("utf-8")) # <===
 
+    def decode_cell(self, buffer):
+        _record_size = self.get_varint(buffer)
+        _row_id = self.get_varint(buffer)
+        self.decode_record(buffer)
 
     def tables(self):
         with self as db_file:
@@ -96,13 +108,10 @@ class SqliteParser:
             # -- page header
             page_type, _, nr_cells, start_cell_content_area, _  = struct.unpack(">bHHHb", db_file.read(8))
 
-            db_file.seek(start_cell_content_area, os.SEEK_SET)
+            offsets = list(struct.unpack(f">{nr_cells}H", db_file.read(nr_cells * 2))) + [page_size]
 
-            # --- cell area
-            for _ in range(nr_cells):
-                record_size = self.get_varint(db_file)
-                row_id = self.get_varint(db_file)
-                print(record_size)
-                print(row_id)
-                self.decode_record(db_file)
-                break
+            for start, stop in pairwise(sorted(offsets)):
+                db_file.seek(start, os.SEEK_SET)
+                cell = db_file.read(stop - start)
+                self.decode_cell(io.BytesIO(cell))
+            print(" ".join(sorted(self._tables_names)))
