@@ -1,3 +1,4 @@
+import io
 import os
 import struct
 from itertools import pairwise
@@ -20,6 +21,16 @@ class SqliteParser:
 
     def __exit__(self, *args):
         return self.file_object.__exit__(*args)
+
+    @classmethod
+    def get_varint(cls, buffer):
+        result = 0
+        while True:
+            value = int.from_bytes(buffer.read(1), "big")
+            result = (result << 7) | (value & 0x7F)
+            if (value & 0x80) == 0:
+                break
+        return result
 
     def handle_command(self, command: str):
         match command:
@@ -48,32 +59,11 @@ class SqliteParser:
 
             # -- page header
             page_type, _, nr_cells, start_cell_content_area, _  = struct.unpack(">bHHHb", db_file.read(8))
-            print(page_type, nr_cells, start_cell_content_area)
 
-            cells = []
-            offsets = list(struct.unpack(f">{nr_cells}H", db_file.read(nr_cells * 2))) + [page_size]
+            db_file.seek(start_cell_content_area, os.SEEK_SET)
 
-            for start, stop in pairwise(sorted(offsets)):
-                db_file.seek(start, os.SEEK_SET)
-                cells.append(db_file.read(stop - start))
-
-
-            for cell in cells:
-                print(cell)
-
-            # page_type = struct.unpack(">b", db_file.read(1))[0]
-            # free_block_start = struct.unpack(">H", db_file.read(2))[0]
-            # number_of_cells = struct.unpack(">H", db_file.read(2))[0]
-            # start_of_cell_content_area = struct.unpack(">H", db_file.read(2))[0]
-            # number_of_fragments = struct.unpack(">b", db_file.read(1))[0]
-            # right_most_pointer = struct.unpack(">HH", db_file.read(4))[0]
-            # print(page_type)
-            # print(free_block_start)
-            # print(number_of_cells)
-            # print(start_of_cell_content_area)
-            # print(number_of_fragments)
-            # print(right_most_pointer)
-            # page_header =
-            # [cell_count] = struct.unpack(">H", db_file.read(2))
-            # offsets = struct.unpack(f">{cell_count}H", db_file.read(cell_count * 2))
-            # start_cell_content_area =
+            # --- cell area
+            for _ in range(nr_cells):
+                record_size = self.get_varint(db_file)
+                row_id = self.get_varint(db_file)
+                break
