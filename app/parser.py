@@ -12,12 +12,12 @@ class SqliteParser:
     AVAILABLE_COMMANDS = [".dbinfo", ".tables",]
 
     def __init__(self, db_path: PathLike):
-        self.file_object = db_path.open("rb")
+        self.file_object = db_path.open("rb") # noqa
         self._tables_names = []
 
     def __enter__(self):
         self.file_object.__enter__()
-        return self.file_object
+        return self
 
     def __exit__(self, *args):
         return self.file_object.__exit__(*args)
@@ -40,15 +40,6 @@ class SqliteParser:
                 return self.tables()
             case _:
                 raise ValueError(f"Invalid command: {command}")
-
-    def db_info(self):
-        with self as db_file:  # noqa
-            db_file.seek(16)
-            page_size = struct.unpack(">H", db_file.read(2))[0]
-            print("database page size: ", page_size)
-            db_file.seek(103, os.SEEK_SET)
-            page_count = struct.unpack(">H", db_file.read(2))[0]
-            print("number of tables: ", page_count)
 
     @classmethod
     def get_serial_type_code(cls, n: int) -> int | str:
@@ -98,20 +89,28 @@ class SqliteParser:
         _row_id = self.get_varint(buffer)
         self.decode_record(buffer)
 
+    def db_info(self):
+        self.file_object.seek(16)
+        page_size = struct.unpack(">H", self.file_object.read(2))[0]
+        print("database page size: ", page_size)
+        self.file_object.seek(103, os.SEEK_SET)
+        page_count = struct.unpack(">H", self.file_object.read(2))[0]
+        print("number of tables: ", page_count)
+
     def tables(self):
-        with self as db_file:
-            # -- file header
-            db_file.read(16)
-            page_size = struct.unpack(">H", db_file.read(2))[0]
-            db_file.read(82)
 
-            # -- page header
-            page_type, _, nr_cells, start_cell_content_area, _  = struct.unpack(">bHHHb", db_file.read(8))
+        # -- file header
+        self. file_object.read(16)
+        page_size = struct.unpack(">H", self.file_object.read(2))[0]
+        self.file_object.read(82)
 
-            offsets = list(struct.unpack(f">{nr_cells}H", db_file.read(nr_cells * 2))) + [page_size]
+        # -- page header
+        page_type, _, nr_cells, start_cell_content_area, _  = struct.unpack(">bHHHb", self.file_object.read(8))
 
-            for start, stop in pairwise(sorted(offsets)):
-                db_file.seek(start, os.SEEK_SET)
-                cell = db_file.read(stop - start)
-                self.decode_cell(io.BytesIO(cell))
-            print(" ".join(sorted(self._tables_names)))
+        offsets = list(struct.unpack(f">{nr_cells}H", self.file_object.read(nr_cells * 2))) + [page_size]
+
+        for start, stop in pairwise(sorted(offsets)):
+            self.file_object.seek(start, os.SEEK_SET)
+            cell = self.file_object.read(stop - start)
+            self.decode_cell(io.BytesIO(cell))
+        print(" ".join(sorted(self._tables_names)))

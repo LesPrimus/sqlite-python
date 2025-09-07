@@ -12,8 +12,8 @@ def get_args():
 
 
 def main(*, database_file_path: Path, command: str):
-    parser = SqliteParser(database_file_path)
-    parser.handle_command(command)
+    with SqliteParser(database_file_path) as parser:
+        parser.handle_command(command)
 
 
 if __name__ == "__main__":
