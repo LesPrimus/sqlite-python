@@ -6,13 +6,17 @@ from os import PathLike
 
 __all__ = ["SqliteParser"]
 
+from app.models import DbHeader, PageHeader
 
 
 class SqliteParser:
-    AVAILABLE_COMMANDS = [".dbinfo", ".tables",]
+    AVAILABLE_COMMANDS = [
+        ".dbinfo",
+        ".tables",
+    ]
 
     def __init__(self, db_path: PathLike):
-        self.file_object = db_path.open("rb") # noqa
+        self.file_object = db_path.open("rb")  # noqa
         self._tables_names = []
 
     def __enter__(self):
@@ -82,7 +86,9 @@ class SqliteParser:
         _st_schema_sql = self.get_varint(buffer)
         buffer.read(self.get_serial_type_code(st_schema_type))
         buffer.read(self.get_serial_type_code(st_schema_name))
-        self._tables_names.append(buffer.read(self.get_serial_type_code(st_schema_tbl_name)).decode("utf-8")) # <===
+        self._tables_names.append(
+            buffer.read(self.get_serial_type_code(st_schema_tbl_name)).decode("utf-8")
+        )  # <===
 
     def decode_cell(self, buffer):
         _record_size = self.get_varint(buffer)
@@ -90,24 +96,26 @@ class SqliteParser:
         self.decode_record(buffer)
 
     def db_info(self):
-        self.file_object.seek(16)
-        page_size = struct.unpack(">H", self.file_object.read(2))[0]
-        print("database page size: ", page_size)
-        self.file_object.seek(103, os.SEEK_SET)
-        page_count = struct.unpack(">H", self.file_object.read(2))[0]
-        print("number of tables: ", page_count)
+        db_header = DbHeader.from_bytes(self.file_object)
+        page_header = PageHeader.from_bytes(self.file_object)
+        print("database page size: ", db_header.page_size)
+        print("number of tables: ", page_header.cell_count)
+        return db_header, page_header
 
     def tables(self):
-
         # -- file header
-        self. file_object.read(16)
+        self.file_object.read(16)
         page_size = struct.unpack(">H", self.file_object.read(2))[0]
         self.file_object.read(82)
 
         # -- page header
-        page_type, _, nr_cells, start_cell_content_area, _  = struct.unpack(">bHHHb", self.file_object.read(8))
+        page_type, _, nr_cells, start_cell_content_area, _ = struct.unpack(
+            ">bHHHb", self.file_object.read(8)
+        )
 
-        offsets = list(struct.unpack(f">{nr_cells}H", self.file_object.read(nr_cells * 2))) + [page_size]
+        offsets = list(
+            struct.unpack(f">{nr_cells}H", self.file_object.read(nr_cells * 2))
+        ) + [page_size]
 
         for start, stop in pairwise(sorted(offsets)):
             self.file_object.seek(start, os.SEEK_SET)
