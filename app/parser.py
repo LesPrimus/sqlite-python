@@ -6,7 +6,7 @@ from os import PathLike
 
 __all__ = ["SqliteParser"]
 
-from app.models import DbHeader, PageHeader
+from app.models import DbHeader, LeafPageHeader
 
 
 class SqliteParser:
@@ -97,28 +97,26 @@ class SqliteParser:
 
     def db_info(self):
         db_header = DbHeader.from_bytes(self.file_object)
-        page_header = PageHeader.from_bytes(self.file_object)
+        page_header = LeafPageHeader.from_bytes(self.file_object)
         print("database page size: ", db_header.page_size)
         print("number of tables: ", page_header.cell_count)
         return db_header, page_header
 
     def tables(self):
         # -- file header
-        self.file_object.read(16)
-        page_size = struct.unpack(">H", self.file_object.read(2))[0]
-        self.file_object.read(82)
+        db_header = DbHeader.from_bytes(self.file_object)
+        page_header = LeafPageHeader.from_bytes(self.file_object)
+        page_size = db_header.page_size
+        cell_count = page_header.cell_count
 
-        # -- page header
-        page_type, _, nr_cells, start_cell_content_area, _ = struct.unpack(
-            ">bHHHb", self.file_object.read(8)
+        unpacked_offsets = struct.unpack(
+            f">{cell_count}H", self.file_object.read(cell_count * 2)
         )
+        offsets = sorted((page_size, *unpacked_offsets))
 
-        offsets = list(
-            struct.unpack(f">{nr_cells}H", self.file_object.read(nr_cells * 2))
-        ) + [page_size]
-
-        for start, stop in pairwise(sorted(offsets)):
+        for start, stop in pairwise(offsets):
             self.file_object.seek(start, os.SEEK_SET)
             cell = self.file_object.read(stop - start)
             self.decode_cell(io.BytesIO(cell))
         print(" ".join(sorted(self._tables_names)))
+        return

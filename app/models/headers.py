@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-__all__ = ["DbHeader", "PageHeader"]
+__all__ = ["DbHeader", "LeafPageHeader"]
 
 
 @dataclass
@@ -83,13 +83,12 @@ class DbHeader:
 
 
 @dataclass
-class PageHeader:
+class LeafPageHeader:
     page_type: int
     first_free_block: int
     cell_count: int
     cell_content_area: int
     fragment_free_bytes: int
-    right_child_page_number: int
 
     @classmethod
     def from_bytes(cls, buffer):
@@ -98,12 +97,10 @@ class PageHeader:
         cell_count = int.from_bytes(buffer.read(2), "big")
         cell_content_area = int.from_bytes(buffer.read(2), "big")
         fragment_free_bytes = int.from_bytes(buffer.read(1), "big")
-        right_child_page_number = int.from_bytes(buffer.read(4), "big")
         return cls(
             page_type,
             first_free_block,
             cell_count,
             cell_content_area,
             fragment_free_bytes,
-            right_child_page_number,
         )
