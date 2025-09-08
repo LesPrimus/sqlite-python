@@ -1,10 +1,27 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 __all__ = ["DbHeader", "LeafPageHeader"]
 
+class ParseHeaderMixin:
+    @classmethod
+    def _parse_field_type(cls, buffer, _type, size):
+        if _type is int:
+            return int.from_bytes(buffer.read(size), "big")
+        elif _type is str:
+            return buffer.read(size).decode("utf-8")
+        else:
+            raise ValueError(f"Unsupported field type: {_type}")
+
+    @classmethod
+    def from_bytes(cls, buffer):
+        results = []
+        for field in fields(cls): # noqa
+            field_size = cls._FIELD_SIZE[field.name] # noqa
+            results.append(cls._parse_field_type(buffer, field.type, field_size))
+        return cls(*results) # noqa
 
 @dataclass
-class DbHeader:
+class DbHeader(ParseHeaderMixin):
     magic_header_str: str
     page_size: int
     file_format_write_version_number: int
@@ -29,78 +46,45 @@ class DbHeader:
     version_valid_for: int
     sqlite_version_number: int
 
-    @classmethod
-    def from_bytes(cls, buffer):
-        magic_header_str = buffer.read(16).decode("utf-8")
-        page_size = int.from_bytes(buffer.read(2), "big")
-        file_format_write_version_number = int.from_bytes(buffer.read(1), "big")
-        file_format_read_version_number = int.from_bytes(buffer.read(1), "big")
-        reserved_bytes_per_pages = int.from_bytes(buffer.read(1), "big")
-        max_embedded_payload_fraction = int.from_bytes(buffer.read(1), "big")
-        min_embedded_payload_fraction = int.from_bytes(buffer.read(1), "big")
-        leaf_payload_fraction = int.from_bytes(buffer.read(1), "big")
-        file_change_counter = int.from_bytes(buffer.read(4), "big")
-        size_in_pages = int.from_bytes(buffer.read(4), "big")
-        freelist_trunk_page_number = int.from_bytes(buffer.read(4), "big")
-        freelist_pages_number = int.from_bytes(buffer.read(4), "big")
-        schema_cookie = int.from_bytes(buffer.read(4), "big")
-        schema_format_number = int.from_bytes(buffer.read(4), "big")
-        default_page_cache_size = int.from_bytes(buffer.read(4), "big")
-        largest_root_page_number = int.from_bytes(buffer.read(4), "big")
-        db_text_encoding = int.from_bytes(buffer.read(4), "big")
-        user_version = int.from_bytes(buffer.read(4), "big")
-        incremental_vacuum_mode = int.from_bytes(buffer.read(4), "big")
-        application_id = int.from_bytes(buffer.read(4), "big")
-        reserved_bytes_per_page = int.from_bytes(buffer.read(20), "big")
-        version_valid_for = int.from_bytes(buffer.read(4), "big")
-        sqlite_version_number = int.from_bytes(buffer.read(4), "big")
-
-        return cls(
-            magic_header_str,
-            page_size,
-            file_format_write_version_number,
-            file_format_read_version_number,
-            reserved_bytes_per_pages,
-            max_embedded_payload_fraction,
-            min_embedded_payload_fraction,
-            leaf_payload_fraction,
-            file_change_counter,
-            size_in_pages,
-            freelist_trunk_page_number,
-            freelist_pages_number,
-            schema_cookie,
-            schema_format_number,
-            default_page_cache_size,
-            largest_root_page_number,
-            db_text_encoding,
-            user_version,
-            incremental_vacuum_mode,
-            application_id,
-            reserved_bytes_per_page,
-            version_valid_for,
-            sqlite_version_number,
-        )
+    _FIELD_SIZE = {
+        "magic_header_str": 16,
+        "page_size": 2,
+        "file_format_write_version_number": 1,
+        "file_format_read_version_number": 1,
+        "reserved_bytes_per_pages": 1,
+        "max_embedded_payload_fraction": 1,
+        "min_embedded_payload_fraction": 1,
+        "leaf_payload_fraction": 1,
+        "file_change_counter": 4,
+        "size_in_pages": 4,
+        "freelist_trunk_page_number": 4,
+        "freelist_pages_number": 4,
+        "schema_cookie": 4,
+        "schema_format_number": 4,
+        "default_page_cache_size": 4,
+        "largest_root_page_number": 4,
+        "db_text_encoding": 4,
+        "user_version": 4,
+        "incremental_vacuum_mode": 4,
+        "application_id": 4,
+        "reserved_bytes_per_page": 20,
+        "version_valid_for": 4,
+        "sqlite_version_number": 4,
+    }
 
 
 @dataclass
-class LeafPageHeader:
+class LeafPageHeader(ParseHeaderMixin):
     page_type: int
     first_free_block: int
     cell_count: int
     cell_content_area: int
     fragment_free_bytes: int
 
-    @classmethod
-    def from_bytes(cls, buffer):
-        page_type = int.from_bytes(buffer.read(1), "big")
-        first_free_block = int.from_bytes(buffer.read(2), "big")
-        cell_count = int.from_bytes(buffer.read(2), "big")
-        cell_content_area = int.from_bytes(buffer.read(2), "big")
-        fragment_free_bytes = int.from_bytes(buffer.read(1), "big")
-        return cls(
-            page_type,
-            first_free_block,
-            cell_count,
-            cell_content_area,
-            fragment_free_bytes,
-        )
+    _FIELD_SIZE = {
+        "page_type": 1,
+        "first_free_block": 2,
+        "cell_count": 2,
+        "cell_content_area": 2,
+        "fragment_free_bytes": 1,
+    }
