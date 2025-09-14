@@ -2,6 +2,7 @@ from dataclasses import dataclass, fields
 
 __all__ = ["DbHeader", "LeafPageHeader"]
 
+
 class ParseHeaderMixin:
     @classmethod
     def _parse_field_type(cls, buffer, _type, size):
@@ -15,10 +16,11 @@ class ParseHeaderMixin:
     @classmethod
     def from_bytes(cls, buffer):
         results = []
-        for field in fields(cls): # noqa
-            field_size = cls._FIELD_SIZE[field.name] # noqa
+        for field in fields(cls):  # noqa
+            field_size = cls._FIELD_SIZE[field.name]  # noqa
             results.append(cls._parse_field_type(buffer, field.type, field_size))
-        return cls(*results) # noqa
+        return cls(*results)  # noqa
+
 
 @dataclass
 class DbHeader(ParseHeaderMixin):

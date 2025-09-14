@@ -7,7 +7,7 @@ from app.parser import SqliteParser
 def get_args():
     parser = ArgumentParser()
     parser.add_argument("database_file_path", type=Path)
-    parser.add_argument("command", choices=SqliteParser.AVAILABLE_COMMANDS, type=str)
+    parser.add_argument("command", type=str)
     return parser.parse_args()
 
 

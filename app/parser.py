@@ -2,22 +2,21 @@ import io
 import os
 import struct
 from itertools import pairwise
+from operator import attrgetter
 from os import PathLike
 
 __all__ = ["SqliteParser"]
 
-from app.models import DbHeader, LeafPageHeader
+from app.models import DbHeader, LeafPageHeader, Cell
 
 
 class SqliteParser:
-    AVAILABLE_COMMANDS = [
-        ".dbinfo",
-        ".tables",
-    ]
 
     def __init__(self, db_path: PathLike):
         self.file_object = db_path.open("rb")  # noqa
-        self._tables_names = []
+        self.db_header = None
+        self.page_header = None
+        self.cells = []
 
     def __enter__(self):
         self.file_object.__enter__()
@@ -43,7 +42,7 @@ class SqliteParser:
             case ".tables":
                 return self.tables()
             case _:
-                raise ValueError(f"Invalid command: {command}")
+                return self.sql(command)
 
     @classmethod
     def get_serial_type_code(cls, n: int) -> int | str:
@@ -77,35 +76,39 @@ class SqliteParser:
             case _:
                 raise ValueError(f"Invalid serial type code: {n}")
 
-    def decode_record(self, buffer):
-        _record_header_size = self.get_varint(buffer)
+    def decode_cell(self, buffer):
+        record_size = self.get_varint(buffer)
+        row_id = self.get_varint(buffer)
+        record_header_size = self.get_varint(buffer)
         st_schema_type = self.get_varint(buffer)
         st_schema_name = self.get_varint(buffer)
         st_schema_tbl_name = self.get_varint(buffer)
-        _st_schema_root_page = self.get_varint(buffer)
-        _st_schema_sql = self.get_varint(buffer)
-        buffer.read(self.get_serial_type_code(st_schema_type))
-        buffer.read(self.get_serial_type_code(st_schema_name))
-        self._tables_names.append(
-            buffer.read(self.get_serial_type_code(st_schema_tbl_name)).decode("utf-8")
-        )  # <===
+        st_schema_root_page = self.get_varint(buffer)
+        st_schema_sql = self.get_varint(buffer)
+        type_ = buffer.read(self.get_serial_type_code(st_schema_type))
+        name = buffer.read(self.get_serial_type_code(st_schema_name))
+        tbl_name = buffer.read(self.get_serial_type_code(st_schema_tbl_name)).decode(
+            "utf-8"
+        )
+        root_page = int.from_bytes(
+            buffer.read(self.get_serial_type_code(st_schema_root_page))
+        )
+        sql = buffer.read(self.get_serial_type_code(st_schema_sql))
+        cell = Cell(
+            record_size=record_size,
+            row_id=row_id,
+            header_size=record_header_size,
+            type=type_,
+            name=name,
+            tbl_name=tbl_name,
+            root_page=root_page,
+            sql=sql,
+        )
+        return cell
 
-    def decode_cell(self, buffer):
-        _record_size = self.get_varint(buffer)
-        _row_id = self.get_varint(buffer)
-        self.decode_record(buffer)
-
-    def db_info(self):
-        db_header = DbHeader.from_bytes(self.file_object)
-        page_header = LeafPageHeader.from_bytes(self.file_object)
-        print("database page size: ", db_header.page_size)
-        print("number of tables: ", page_header.cell_count)
-        return db_header, page_header
-
-    def tables(self):
-        # -- file header
-        db_header = DbHeader.from_bytes(self.file_object)
-        page_header = LeafPageHeader.from_bytes(self.file_object)
+    def get_cells(self):
+        self.db_header = db_header = DbHeader.from_bytes(self.file_object)
+        self.page_header = page_header = LeafPageHeader.from_bytes(self.file_object)
         page_size = db_header.page_size
         cell_count = page_header.cell_count
 
@@ -117,6 +120,26 @@ class SqliteParser:
         for start, stop in pairwise(offsets):
             self.file_object.seek(start, os.SEEK_SET)
             cell = self.file_object.read(stop - start)
-            self.decode_cell(io.BytesIO(cell))
-        print(" ".join(sorted(self._tables_names)))
+            self.cells.append(self.decode_cell(io.BytesIO(cell)))
+
+    def db_info(self):
+        self.db_header = db_header = DbHeader.from_bytes(self.file_object)
+        self.page_header = page_header = LeafPageHeader.from_bytes(self.file_object)
+        print("database page size: ", db_header.page_size)
+        print("number of tables: ", page_header.cell_count)
+        return db_header, page_header
+
+
+    def tables(self):
+        self.get_cells()
+        print(" ".join(sorted(map(attrgetter("tbl_name"), self.cells), key=str.lower)))  # noqa
         return
+
+    def sql(self, command):
+        self.get_cells()
+        *_, table_name = command.split()
+        cell = next(c for c in self.cells if c.tbl_name == table_name)
+        self.file_object.seek(self.db_header.page_size * (cell.root_page - 1), os.SEEK_SET)
+        _page_number = struct.unpack(">HH", self.file_object.read(4))[0]
+        row_id = self.file_object.read(1)[0]
+        print(row_id)
