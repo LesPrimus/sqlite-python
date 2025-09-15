@@ -11,7 +11,6 @@ from app.models import DbHeader, LeafPageHeader, Cell
 
 
 class SqliteParser:
-
     def __init__(self, db_path: PathLike):
         self.file_object = db_path.open("rb")  # noqa
         self.db_header = None
@@ -129,7 +128,6 @@ class SqliteParser:
         print("number of tables: ", page_header.cell_count)
         return db_header, page_header
 
-
     def tables(self):
         self.get_cells()
         print(" ".join(sorted(map(attrgetter("tbl_name"), self.cells), key=str.lower)))  # noqa
@@ -139,7 +137,9 @@ class SqliteParser:
         self.get_cells()
         *_, table_name = command.split()
         cell = next(c for c in self.cells if c.tbl_name == table_name)
-        self.file_object.seek(self.db_header.page_size * (cell.root_page - 1), os.SEEK_SET)
+        self.file_object.seek(
+            self.db_header.page_size * (cell.root_page - 1), os.SEEK_SET
+        )
         _page_number = struct.unpack(">HH", self.file_object.read(4))[0]
         row_id = self.file_object.read(1)[0]
         print(row_id)
