@@ -1,4 +1,4 @@
-from app.models import DbHeader
+from app.models import DbHeader, LeafPageHeader
 
 
 def test_db_header(db_file):
@@ -26,3 +26,12 @@ def test_db_header(db_file):
     assert header.reserved_bytes_per_page == 0
     assert header.version_valid_for == 25
     assert header.sqlite_version_number == 3007006
+
+def test_leaf_page_header(db_file):
+    _ = DbHeader.from_bytes(db_file)
+    header = LeafPageHeader.from_bytes(db_file)
+    assert header.page_type == 5
+    assert header.first_free_block == 0
+    assert header.cell_count == 7
+    assert header.cell_content_area == 989
+    assert header.fragment_free_bytes == 0
