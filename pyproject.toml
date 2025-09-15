@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "pytest>=8.4.2",
     "ruff>=0.12.11",
     "sqlparse>=0.5.3",
 ]
