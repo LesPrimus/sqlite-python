@@ -1,7 +1,7 @@
 from app.models import DbHeader
 
 
-def test_some(db_file):
+def test_db_header(db_file):
     header = DbHeader.from_bytes(db_file)
     assert header.magic_header_str == "SQLite format 3\x00"
     assert header.page_size == 1024
