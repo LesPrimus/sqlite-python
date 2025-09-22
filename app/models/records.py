@@ -1,11 +1,13 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 __all__ = ["Record"]
+
+from typing import Any
 
 
 @dataclass
 class Record:
-    payload_size: int
+    record_size: int
     row_id: int
-    payload: bytes
+    values: list[Any] = field(default_factory=list)
 

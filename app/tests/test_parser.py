@@ -1,5 +1,6 @@
 import pathlib
 
+from app.models import LeafPageHeader
 from app.parser import SqliteParser
 
 
@@ -7,8 +8,8 @@ class TestParser:
     def test_db_file_content(self, db_file):
         path = pathlib.Path(db_file.name)
         parser = SqliteParser(path)
-        parser.get_cells()
-        # print(parser.cells)
-        print(parser.db_header)
-        print(parser.page_header)
+        schema_table = parser.get_schema_table()
+        [cell] = schema_table.cells
+        records = parser.get_records(schema_table.db_header, cell.root_page)
+        print(records)
         assert 0

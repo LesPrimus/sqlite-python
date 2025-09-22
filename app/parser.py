@@ -7,7 +7,8 @@ from os import PathLike
 
 __all__ = ["SqliteParser"]
 
-from app.models import DbHeader, LeafPageHeader, Cell
+from app.models import DbHeader, LeafPageHeader, Cell, Record
+from app.models.tables import SchemaTable
 
 
 class SqliteParser:
@@ -42,6 +43,47 @@ class SqliteParser:
                 return self.tables()
             case _:
                 return self.sql(command)
+
+    @classmethod
+    def decode_value_by_serial_type(cls, buffer, serial_type: int):
+        """Decode a value from buffer based on its serial type."""
+        match serial_type:
+            case 0:
+                return None  # NULL
+            case 1:
+                return struct.unpack('>b', buffer.read(1))[0]  # 8-bit signed int
+            case 2:
+                return struct.unpack('>h', buffer.read(2))[0]  # 16-bit signed int
+            case 3:
+                # 24-bit signed integer
+                data = buffer.read(3)
+                value = int.from_bytes(data, 'big', signed=True)
+                return value
+            case 4:
+                return struct.unpack('>i', buffer.read(4))[0]  # 32-bit signed int
+            case 5:
+                # 48-bit signed integer
+                data = buffer.read(6)
+                value = int.from_bytes(data, 'big', signed=True)
+                return value
+            case 6:
+                return struct.unpack('>q', buffer.read(8))[0]  # 64-bit signed int
+            case 7:
+                return struct.unpack('>d', buffer.read(8))[0]  # 64-bit float
+            case 8:
+                return 0  # Integer constant 0
+            case 9:
+                return 1  # Integer constant 1
+            case _ if serial_type >= 12 and serial_type % 2 == 0:
+                # BLOB
+                length = (serial_type - 12) // 2
+                return buffer.read(length)
+            case _ if serial_type >= 13 and serial_type % 2 != 0:
+                # TEXT
+                length = (serial_type - 13) // 2
+                return buffer.read(length).decode('utf-8')
+            case _:
+                raise ValueError(f"Invalid serial type code: {serial_type}")
 
     @classmethod
     def get_serial_type_code(cls, n: int) -> int | str:
@@ -105,9 +147,9 @@ class SqliteParser:
         )
         return cell
 
-    def get_cells(self):
-        self.db_header = db_header = DbHeader.from_bytes(self.file_object)
-        self.page_header = page_header = LeafPageHeader.from_bytes(self.file_object)
+    def get_schema_table(self):
+        db_header = DbHeader.from_bytes(self.file_object)
+        page_header = LeafPageHeader.from_bytes(self.file_object)
         page_size = db_header.page_size
         cell_count = page_header.cell_count
 
@@ -116,21 +158,71 @@ class SqliteParser:
         )
         offsets = sorted((page_size, *unpacked_offsets))
 
+        cells = []
         for start, stop in pairwise(offsets):
             self.file_object.seek(start, os.SEEK_SET)
             cell = self.file_object.read(stop - start)
-            self.cells.append(self.decode_cell(io.BytesIO(cell)))
+            cells.append(self.decode_cell(io.BytesIO(cell)))
+        return SchemaTable(db_header, page_header, cells)
+
+    def decode_record(self, buffer, include_rowid=True):
+        record_size = self.get_varint(buffer)
+        row_id = self.get_varint(buffer)
+
+        # Read header size
+        header_start_pos = buffer.tell()
+        header_size = self.get_varint(buffer)
+
+        # Read serial type codes
+        serial_types = []
+        while buffer.tell() < header_start_pos + header_size:
+            serial_types.append(self.get_varint(buffer))
+
+        # Now read the actual data
+        values = []
+        for serial_type in serial_types:
+            value = self.decode_value_by_serial_type(buffer, serial_type)
+            values.append(value)
+
+        return Record(record_size=record_size, row_id=row_id, values=values)
+
+    def get_records(self, db_header, root_page):
+        page_header = LeafPageHeader.from_bytes(self.file_object)
+        page_size = db_header.page_size
+
+        cell_count = page_header.cell_count
+
+        unpacked_offsets = struct.unpack(
+            f">{cell_count}H", self.file_object.read(cell_count * 2)
+        )
+        offsets = sorted([page_size * root_page] + [off + page_size for off in unpacked_offsets])
+
+        records = []
+        for start, stop in pairwise(offsets):
+            self.file_object.seek(start, os.SEEK_SET)
+            cell_data = self.file_object.read(stop - start)
+            buffer = io.BytesIO(cell_data)
+
+            try:
+                record = self.decode_record(buffer, include_rowid=True)
+                records.append(record)
+            except Exception as e:
+                print(f"Error decoding record at offset {start}: {e}")
+                continue
+
+        return records
+
 
     def db_info(self):
-        self.db_header = db_header = DbHeader.from_bytes(self.file_object)
-        self.page_header = page_header = LeafPageHeader.from_bytes(self.file_object)
-        print("database page size: ", db_header.page_size)
-        print("number of tables: ", page_header.cell_count)
-        return db_header, page_header
+            self.db_header = db_header = DbHeader.from_bytes(self.file_object)
+            self.page_header = page_header = LeafPageHeader.from_bytes(self.file_object)
+            print("database page size: ", db_header.page_size)
+            print("number of tables: ", page_header.cell_count)
+            return db_header, page_header
 
     def tables(self):
-        self.get_cells()
-        print(" ".join(sorted(map(attrgetter("tbl_name"), self.cells), key=str.lower)))  # noqa
+        schema_table = self.get_schema_table()
+        print(" ".join(sorted(map(attrgetter("tbl_name"), schema_table.cells), key=str.lower)))  # noqa
         return
 
     def sql(self, command):
