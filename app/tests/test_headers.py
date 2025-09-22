@@ -1,6 +1,5 @@
 from app.models import DbHeader, LeafPageHeader
 
-
 def test_db_header(db_file):
     header = DbHeader.from_bytes(db_file)
     assert header.magic_header_str == "SQLite format 3\x00"
@@ -35,9 +34,3 @@ def test_leaf_page_header(db_file):
     assert header.cell_count == 1
     assert header.cell_content_area == 4032
     assert header.fragment_free_bytes == 0
-
-
-def test_db_file_content(db_file):
-    header = DbHeader.from_bytes(db_file)
-    print(header)
-    assert 0
