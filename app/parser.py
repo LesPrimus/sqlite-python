@@ -174,6 +174,7 @@ class SqliteParser:
         header_size = self.get_varint(buffer)
 
         # Read serial type codes
+        # fixme find a better way to do this
         serial_types = []
         while buffer.tell() < header_start_pos + header_size:
             serial_types.append(self.get_varint(buffer))
@@ -225,13 +226,29 @@ class SqliteParser:
         print(" ".join(sorted(map(attrgetter("tbl_name"), schema_table.cells), key=str.lower)))  # noqa
         return
 
+    def count_rows(self, table_name):
+        schema_table = self.get_schema_table()
+        [cell] = [c for c in schema_table.cells if c.tbl_name == table_name]
+        records = self.get_records(schema_table.db_header, cell.root_page)
+        print(len(records))
+        return len(records)
+
+    def fetch_from_table(self, name, table_name):
+        name = name.lower().strip()
+        schema_table = self.get_schema_table()
+        [cell] = [c for c in schema_table.cells if c.tbl_name == table_name]
+        _index = cell.extract_columns_simple().index(name)
+        records = self.get_records(schema_table.db_header, cell.root_page)
+        for record in records:
+            print(record.values[_index])
+        return records
+
     def sql(self, command):
-        self.get_cells()
-        *_, table_name = command.split()
-        cell = next(c for c in self.cells if c.tbl_name == table_name)
-        self.file_object.seek(
-            self.db_header.page_size * (cell.root_page - 1), os.SEEK_SET
-        )
-        _page_number = struct.unpack(">HH", self.file_object.read(4))[0]
-        row_id = self.file_object.read(1)[0]
-        print(row_id)
+        _, operation, _, table_name = command.split()
+        match operation.lower():
+            case "count(*)":
+                return self.count_rows(table_name)
+            case str() as column_name:
+                return self.fetch_from_table(column_name, table_name)
+            case _:
+                raise ValueError(f"Unsupported SQL operation: {operation}")

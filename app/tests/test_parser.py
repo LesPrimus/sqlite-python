@@ -5,11 +5,15 @@ from app.parser import SqliteParser
 
 
 class TestParser:
-    def test_db_file_content(self, db_file):
+    def test_parser_count_rows(self, db_file):
         path = pathlib.Path(db_file.name)
         parser = SqliteParser(path)
-        schema_table = parser.get_schema_table()
-        [cell] = schema_table.cells
-        records = parser.get_records(schema_table.db_header, cell.root_page)
-        print(records)
+        expected = parser.sql("SELECT COUNT(*) FROM movie")
+        assert expected == 2
+
+    def test_parser_fetch_from_table(self, db_file):
+        path = pathlib.Path(db_file.name)
+        parser = SqliteParser(path)
+        expected = parser.sql("SELECT title FROM movie")
         assert 0
+        assert expected == ["The Shawshank Redemption", "The Godfather"]
