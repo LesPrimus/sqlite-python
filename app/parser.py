@@ -165,19 +165,15 @@ class SqliteParser:
             cells.append(self.decode_cell(io.BytesIO(cell)))
         return SchemaTable(db_header, page_header, cells)
 
-    def decode_record(self, buffer, include_rowid=True):
+    def decode_record(self, buffer: io.BytesIO, columns: dict[str, str]) -> Record:
         record_size = self.get_varint(buffer)
         row_id = self.get_varint(buffer)
 
         # Read header size
-        header_start_pos = buffer.tell()
-        header_size = self.get_varint(buffer)
+        _header_size = self.get_varint(buffer)
 
         # Read serial type codes
-        # fixme find a better way to do this
-        serial_types = []
-        while buffer.tell() < header_start_pos + header_size:
-            serial_types.append(self.get_varint(buffer))
+        serial_types = [self.get_varint(buffer) for _ in range(len(columns))]
 
         # Now read the actual data
         values = []
@@ -187,7 +183,7 @@ class SqliteParser:
 
         return Record(record_size=record_size, row_id=row_id, values=values)
 
-    def get_records(self, db_header, root_page):
+    def get_records(self, db_header: DbHeader, root_cell: Cell) -> list[Record]:
         page_header = LeafPageHeader.from_bytes(self.file_object)
         page_size = db_header.page_size
 
@@ -197,7 +193,8 @@ class SqliteParser:
             f">{cell_count}H", self.file_object.read(cell_count * 2)
         )
         offsets = sorted(
-            [page_size * root_page] + [off + page_size for off in unpacked_offsets]
+            [page_size * root_cell.root_page]
+            + [off + page_size for off in unpacked_offsets]
         )
 
         records = []
@@ -207,7 +204,7 @@ class SqliteParser:
             buffer = io.BytesIO(cell_data)
 
             try:
-                record = self.decode_record(buffer, include_rowid=True)
+                record = self.decode_record(buffer, columns=root_cell.columns)
                 records.append(record)
             except Exception as e:
                 print(f"Error decoding record at offset {start}: {e}")
@@ -226,7 +223,7 @@ class SqliteParser:
         schema_table = self.get_schema_table()
         print(
             " ".join(
-                sorted(map(attrgetter("tbl_name"), schema_table.cells), key=str.lower)
+                sorted(map(attrgetter("tbl_name"), schema_table.cells), key=str.lower)  # noqa
             )
         )  # noqa
         return
@@ -234,7 +231,7 @@ class SqliteParser:
     def count_rows(self, table_name):
         schema_table = self.get_schema_table()
         [cell] = [c for c in schema_table.cells if c.tbl_name == table_name]
-        records = self.get_records(schema_table.db_header, cell.root_page)
+        records = self.get_records(schema_table.db_header, cell)
         print(len(records))
         return len(records)
 
@@ -243,7 +240,7 @@ class SqliteParser:
         schema_table = self.get_schema_table()
         [cell] = [c for c in schema_table.cells if c.tbl_name == table_name]
         _index = cell.get_column_index(name)
-        records = self.get_records(schema_table.db_header, cell.root_page)
+        records = self.get_records(schema_table.db_header, cell)
         ret = [record.values[_index] for record in records]
         print("\n".join(map(str, ret)))
         return ret

@@ -1,5 +1,4 @@
-import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 __all__ = ["Cell"]
 
@@ -16,14 +15,17 @@ class Cell:
     tbl_name: str
     root_page: int
     sql: bytes
+    columns: dict[str, str] = field(init=False)
+
+    def __post_init__(self):
+        self.columns = self.extract_columns_simple()
 
     def extract_columns_simple(self):
         sql = self.sql.decode("utf-8")
         return extract_columns(sql)
 
     def get_column_index(self, column_name):
-        columns = self.extract_columns_simple()
-        for i, (name, _) in enumerate(columns):
+        for i, name in enumerate(self.columns):
             if name == column_name:
                 return i
         return None
