@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 __all__ = ["Cell"]
 
+from app.utils import extract_columns
+
 
 @dataclass
 class Cell:
@@ -17,12 +19,11 @@ class Cell:
 
     def extract_columns_simple(self):
         sql = self.sql.decode("utf-8")
-        pattern = r'CREATE\s+TABLE\s+\w+\s*\(\s*([^)]+)\s*\)'
-        match = re.search(pattern, sql, re.IGNORECASE)
+        return extract_columns(sql)
 
-        if match:
-            columns_str = match.group(1)
-            # Split by comma and clean up
-            columns = [col.strip() for col in columns_str.split(',')]
-            return columns
-        return []
+    def get_column_index(self, column_name):
+        columns = self.extract_columns_simple()
+        for i, (name, _) in enumerate(columns):
+            if name == column_name:
+                return i
+        return None

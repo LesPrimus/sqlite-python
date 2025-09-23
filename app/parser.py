@@ -51,25 +51,25 @@ class SqliteParser:
             case 0:
                 return None  # NULL
             case 1:
-                return struct.unpack('>b', buffer.read(1))[0]  # 8-bit signed int
+                return struct.unpack(">b", buffer.read(1))[0]  # 8-bit signed int
             case 2:
-                return struct.unpack('>h', buffer.read(2))[0]  # 16-bit signed int
+                return struct.unpack(">h", buffer.read(2))[0]  # 16-bit signed int
             case 3:
                 # 24-bit signed integer
                 data = buffer.read(3)
-                value = int.from_bytes(data, 'big', signed=True)
+                value = int.from_bytes(data, "big", signed=True)
                 return value
             case 4:
-                return struct.unpack('>i', buffer.read(4))[0]  # 32-bit signed int
+                return struct.unpack(">i", buffer.read(4))[0]  # 32-bit signed int
             case 5:
                 # 48-bit signed integer
                 data = buffer.read(6)
-                value = int.from_bytes(data, 'big', signed=True)
+                value = int.from_bytes(data, "big", signed=True)
                 return value
             case 6:
-                return struct.unpack('>q', buffer.read(8))[0]  # 64-bit signed int
+                return struct.unpack(">q", buffer.read(8))[0]  # 64-bit signed int
             case 7:
-                return struct.unpack('>d', buffer.read(8))[0]  # 64-bit float
+                return struct.unpack(">d", buffer.read(8))[0]  # 64-bit float
             case 8:
                 return 0  # Integer constant 0
             case 9:
@@ -81,7 +81,7 @@ class SqliteParser:
             case _ if serial_type >= 13 and serial_type % 2 != 0:
                 # TEXT
                 length = (serial_type - 13) // 2
-                return buffer.read(length).decode('utf-8')
+                return buffer.read(length).decode("utf-8")
             case _:
                 raise ValueError(f"Invalid serial type code: {serial_type}")
 
@@ -196,7 +196,9 @@ class SqliteParser:
         unpacked_offsets = struct.unpack(
             f">{cell_count}H", self.file_object.read(cell_count * 2)
         )
-        offsets = sorted([page_size * root_page] + [off + page_size for off in unpacked_offsets])
+        offsets = sorted(
+            [page_size * root_page] + [off + page_size for off in unpacked_offsets]
+        )
 
         records = []
         for start, stop in pairwise(offsets):
@@ -213,17 +215,20 @@ class SqliteParser:
 
         return records
 
-
     def db_info(self):
-            self.db_header = db_header = DbHeader.from_bytes(self.file_object)
-            self.page_header = page_header = LeafPageHeader.from_bytes(self.file_object)
-            print("database page size: ", db_header.page_size)
-            print("number of tables: ", page_header.cell_count)
-            return db_header, page_header
+        self.db_header = db_header = DbHeader.from_bytes(self.file_object)
+        self.page_header = page_header = LeafPageHeader.from_bytes(self.file_object)
+        print("database page size: ", db_header.page_size)
+        print("number of tables: ", page_header.cell_count)
+        return db_header, page_header
 
     def tables(self):
         schema_table = self.get_schema_table()
-        print(" ".join(sorted(map(attrgetter("tbl_name"), schema_table.cells), key=str.lower)))  # noqa
+        print(
+            " ".join(
+                sorted(map(attrgetter("tbl_name"), schema_table.cells), key=str.lower)
+            )
+        )  # noqa
         return
 
     def count_rows(self, table_name):
@@ -237,11 +242,11 @@ class SqliteParser:
         name = name.lower().strip()
         schema_table = self.get_schema_table()
         [cell] = [c for c in schema_table.cells if c.tbl_name == table_name]
-        _index = cell.extract_columns_simple().index(name)
+        _index = cell.get_column_index(name)
         records = self.get_records(schema_table.db_header, cell.root_page)
-        for record in records:
-            print(record.values[_index])
-        return records
+        ret = [record.values[_index] for record in records]
+        print("\n".join(map(str, ret)))
+        return ret
 
     def sql(self, command):
         _, operation, _, table_name = command.split()

@@ -10,4 +10,3 @@ class Record:
     record_size: int
     row_id: int
     values: list[Any] = field(default_factory=list)
-

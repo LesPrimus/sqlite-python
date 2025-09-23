@@ -4,6 +4,7 @@ from app.models import DbHeader, LeafPageHeader, Cell
 
 __all__ = ["SchemaTable"]
 
+
 @dataclass
 class SchemaTable:
     db_header: DbHeader

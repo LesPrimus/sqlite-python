@@ -1,5 +1,6 @@
 from app.models import DbHeader, LeafPageHeader
 
+
 def test_db_header(db_file):
     header = DbHeader.from_bytes(db_file)
     assert header.magic_header_str == "SQLite format 3\x00"
@@ -25,6 +26,7 @@ def test_db_header(db_file):
     assert header.reserved_bytes_per_page == 0
     assert header.version_valid_for == 1
     assert header.sqlite_version_number == 3046000
+
 
 def test_leaf_page_header(db_file):
     _ = DbHeader.from_bytes(db_file)

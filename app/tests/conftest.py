@@ -5,7 +5,6 @@ from tempfile import NamedTemporaryFile
 import pytest
 
 
-
 @pytest.fixture(scope="function")
 def db_file():
     temp_file = NamedTemporaryFile(delete=False)
@@ -13,7 +12,7 @@ def db_file():
         # Create a connection and add some data
         with sqlite3.connect(temp_file.name) as conn:
             cursor = conn.cursor()
-            cursor.execute("CREATE TABLE movie(title, year, score)")
+            cursor.execute("CREATE TABLE movie(title VARCHAR, year INT, score INT)")
             cursor.execute("""
                         INSERT INTO movie
                         VALUES ('Monty Python and the Holy Grail', 1975, 8.2),

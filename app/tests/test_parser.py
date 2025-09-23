@@ -1,6 +1,5 @@
 import pathlib
 
-from app.models import LeafPageHeader
 from app.parser import SqliteParser
 
 
@@ -8,12 +7,16 @@ class TestParser:
     def test_parser_count_rows(self, db_file):
         path = pathlib.Path(db_file.name)
         parser = SqliteParser(path)
-        expected = parser.sql("SELECT COUNT(*) FROM movie")
+        expected = parser.sql("SELECT COUNT(*) FROM movie") # noqa
         assert expected == 2
 
     def test_parser_fetch_from_table(self, db_file):
         path = pathlib.Path(db_file.name)
         parser = SqliteParser(path)
-        expected = parser.sql("SELECT title FROM movie")
-        assert 0
-        assert expected == ["The Shawshank Redemption", "The Godfather"]
+        expected = parser.sql("SELECT title FROM movie") # noqa
+        assert sorted(expected) == sorted(
+            [
+                "Monty Python and the Holy Grail",
+                "And Now for Something Completely Different",
+            ]
+        )
