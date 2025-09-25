@@ -27,3 +27,10 @@ class TestParser:
                 "And Now for Something Completely Different",
             ]
         )
+
+    def test_parser_fetch_from_tables(self, db_file):
+        path = pathlib.Path(db_file.name)
+        parser = SqliteParser(path)
+        expected = parser.sql("SELECT title, year FROM movie")  # noqa
+        print(expected)
+        assert 0
