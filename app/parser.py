@@ -1,6 +1,7 @@
 import io
 import os
 import struct
+from functools import cached_property
 from itertools import pairwise
 from operator import attrgetter
 from os import PathLike
@@ -9,6 +10,7 @@ __all__ = ["SqliteParser"]
 
 from app.models import DbHeader, LeafPageHeader, Cell, Record
 from app.models.tables import SchemaTable
+from app.utils import parse_command
 
 
 class SqliteParser:
@@ -147,7 +149,8 @@ class SqliteParser:
         )
         return cell
 
-    def get_schema_table(self):
+    @cached_property
+    def schema_table(self):
         db_header = DbHeader.from_bytes(self.file_object)
         page_header = LeafPageHeader.from_bytes(self.file_object)
         page_size = db_header.page_size
@@ -156,7 +159,7 @@ class SqliteParser:
         unpacked_offsets = struct.unpack(
             f">{cell_count}H", self.file_object.read(cell_count * 2)
         )
-        offsets = sorted((page_size, *unpacked_offsets))
+        offsets = list(sorted((page_size, *unpacked_offsets)))
 
         cells = []
         for start, stop in pairwise(offsets):
@@ -220,7 +223,7 @@ class SqliteParser:
         return db_header, page_header
 
     def tables(self):
-        schema_table = self.get_schema_table()
+        schema_table = self.schema_table
         print(
             " ".join(
                 sorted(map(attrgetter("tbl_name"), schema_table.cells), key=str.lower)  # noqa
@@ -228,29 +231,34 @@ class SqliteParser:
         )  # noqa
         return
 
-    def count_rows(self, table_name):
-        schema_table = self.get_schema_table()
+    def count_rows(self, table_name, *, verbose=False):
+        schema_table = self.schema_table
         [cell] = [c for c in schema_table.cells if c.tbl_name == table_name]
         records = self.get_records(schema_table.db_header, cell)
-        print(len(records))
+        if verbose:
+            print(len(records))
         return len(records)
 
-    def fetch_from_table(self, name, table_name):
-        name = name.lower().strip()
-        schema_table = self.get_schema_table()
+    def get_cell(self, table_name):
+        schema_table = self.schema_table
         [cell] = [c for c in schema_table.cells if c.tbl_name == table_name]
-        _index = cell.get_column_index(name)
+        return cell
+
+    def fetch_columns(self, *columns, table_name, verbose=False):
+        schema_table = self.schema_table
+        cell = self.get_cell(table_name)
         records = self.get_records(schema_table.db_header, cell)
-        ret = [record.values[_index] for record in records]
-        print("\n".join(map(str, ret)))
-        return ret
+        indexes = [cell.get_column_index(column) for column in columns]
+        results = [tuple(record.values[idx] for idx in indexes) for record in records]
+        if verbose:
+            for result in results:
+                print(" ".join(map(str, result)))
+        return results
 
     def sql(self, command):
-        _, operation, _, table_name = command.split()
-        match operation.lower():
-            case "count(*)":
-                return self.count_rows(table_name)
-            case str() as column_name:
-                return self.fetch_from_table(column_name, table_name)
+        columns, table_name = parse_command(command)
+        match columns:
+            case ["COUNT"]:
+                return self.count_rows(table_name, verbose=True)
             case _:
-                raise ValueError(f"Unsupported SQL operation: {operation}")
+                return self.fetch_columns(*columns, table_name=table_name, verbose=True)

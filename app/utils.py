@@ -2,6 +2,7 @@ import re
 import sqlparse
 from sqlparse.sql import Function, Identifier, IdentifierList
 
+
 def extract_columns(sql_statement: str) -> dict[str, str]:
     # Pattern to match column definitions inside CREATE TABLE
     pattern = r"CREATE\s+TABLE\s+\w+\s*\(\s*([^)]+)\)"
@@ -16,6 +17,7 @@ def extract_columns(sql_statement: str) -> dict[str, str]:
                 name, type_ = col_match.groups()
                 columns[name] = type_
     return columns
+
 
 def parse_command(command):
     exclude = {" ", ","}
