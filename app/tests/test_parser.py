@@ -36,5 +36,6 @@ class TestParser:
             [
                 ("And Now for Something Completely Different", 1971),
                 ("Monty Python and the Holy Grail", 1975),
-            ], key=itemgetter(0),
+            ],
+            key=itemgetter(0),
         )
