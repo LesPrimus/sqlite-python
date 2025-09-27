@@ -252,13 +252,13 @@ class SqliteParser:
         results = [tuple(record.values[idx] for idx in indexes) for record in records]
         if verbose:
             for result in results:
-                print(" ".join(map(str, result)))
+                print("|".join(map(str, result)))
         return results
 
     def sql(self, command):
         columns, table_name = parse_command(command)
         match columns:
-            case ["COUNT"]:
+            case ["count"]:
                 return self.count_rows(table_name, verbose=True)
             case _:
                 return self.fetch_columns(*columns, table_name=table_name, verbose=True)
