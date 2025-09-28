@@ -255,11 +255,31 @@ class SqliteParser:
                 print("|".join(map(str, result)))
         return results
 
+    def filter(self, *columns, table_name, where, sep="=", verbose=False):
+        schema_table = self.schema_table
+        cell = self.get_cell(table_name)
+        records = self.get_records(schema_table.db_header, cell)
+        column, param = map(str.strip, where.split(sep))
+        param = param.strip("'")
+        _index = cell.get_column_index(column)
+        filtered_records = [
+            record for record in records
+            if record.values[_index] == param
+        ]
+        indexes = [cell.get_column_index(column) for column in columns]
+        results = [tuple(record.values[idx] for idx in indexes) for record in filtered_records]
+        if verbose:
+            for result in results:
+                print("|".join(map(str, result)))
+        return results
+
     def sql(self, command):
         command = parse_command(command)
         match command:
             case ParsedCommand(function="COUNT", table_name=table_name):
                 return self.count_rows(table_name, verbose=True)
+            case ParsedCommand(function=None, table_name=table_name, columns=columns, where=str()):
+                return self.filter(*columns, table_name=table_name, where=command.where, verbose=True)
             case ParsedCommand(columns=columns, table_name=table_name):
                 return self.fetch_columns(*columns, table_name=table_name, verbose=True)
             case _:

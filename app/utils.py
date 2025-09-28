@@ -39,7 +39,7 @@ def parse_command(command: str) -> ParsedCommand:
             from_seen = True
         match token:
             case Where():
-                parsed_command.where = token.value.replace("WHERE", "").strip()
+                parsed_command.where = token.value.replace("WHERE", "").replace("where", "").strip()
             case Function():
                 parsed_command.function = token.get_name()
             case IdentifierList():
