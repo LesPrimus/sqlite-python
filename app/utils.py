@@ -1,6 +1,17 @@
 import re
+from dataclasses import dataclass, field
+
 import sqlparse
-from sqlparse.sql import Function, Identifier, IdentifierList
+from sqlparse.sql import Function, Identifier, IdentifierList, Where, Token
+from sqlparse.tokens import Whitespace, Keyword
+
+
+@dataclass
+class ParsedCommand:
+    table_name: str = field(default="")
+    columns: list[str] = field(default_factory=list)
+    function: str | None = None
+    where: str | None = None
 
 
 def extract_columns(sql_statement: str) -> dict[str, str]:
@@ -19,22 +30,28 @@ def extract_columns(sql_statement: str) -> dict[str, str]:
     return columns
 
 
-def parse_command(command):
-    exclude = {" ", ","}
+def parse_command(command: str) -> ParsedCommand:
     parsed = sqlparse.parse(command)[0]
-
-    values = []
-
+    parsed_command = ParsedCommand()
+    from_seen = False
     for token in parsed.tokens:
+        if token.ttype is Keyword and token.value.upper() == "FROM":
+            from_seen = True
         match token:
+            case Where():
+                parsed_command.where = token.value.replace("WHERE", "").strip()
             case Function():
-                values.append(token.get_name())
+                parsed_command.function = token.get_name()
             case IdentifierList():
-                for sub_token in token.tokens:
-                    if (value := sub_token.value) and value not in exclude:
-                        values.append(value)
+                parsed_command.columns = [
+                    sub_token.value
+                    for sub_token in token.tokens
+                    if not sub_token.is_whitespace and sub_token.value.strip() != ","
+                ]
             case Identifier():
-                if (value := token.value) and value not in exclude:
-                    values.append(token.value)
-    *columns, table_name = values
-    return columns, table_name
+                if from_seen:
+                    parsed_command.table_name = token.value
+                    from_seen = False
+                else:
+                    parsed_command.columns = [token.value]
+    return parsed_command

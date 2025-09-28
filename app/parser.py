@@ -10,7 +10,7 @@ __all__ = ["SqliteParser"]
 
 from app.models import DbHeader, LeafPageHeader, Cell, Record
 from app.models.tables import SchemaTable
-from app.utils import parse_command
+from app.utils import parse_command, ParsedCommand
 
 
 class SqliteParser:
@@ -256,9 +256,11 @@ class SqliteParser:
         return results
 
     def sql(self, command):
-        columns, table_name = parse_command(command)
-        match columns:
-            case ["count"]:
+        command = parse_command(command)
+        match command:
+            case ParsedCommand(function="COUNT", table_name=table_name):
                 return self.count_rows(table_name, verbose=True)
-            case _:
+            case ParsedCommand(columns=columns, table_name=table_name):
                 return self.fetch_columns(*columns, table_name=table_name, verbose=True)
+            case _:
+                raise ValueError(f"Invalid command: {command}")
