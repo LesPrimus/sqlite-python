@@ -2,8 +2,8 @@ import re
 from dataclasses import dataclass, field
 
 import sqlparse
-from sqlparse.sql import Function, Identifier, IdentifierList, Where, Token
-from sqlparse.tokens import Whitespace, Keyword
+from sqlparse.sql import Function, Identifier, IdentifierList, Where
+from sqlparse.tokens import Keyword
 
 
 @dataclass
@@ -39,7 +39,9 @@ def parse_command(command: str) -> ParsedCommand:
             from_seen = True
         match token:
             case Where():
-                parsed_command.where = token.value.replace("WHERE", "").replace("where", "").strip()
+                parsed_command.where = (
+                    token.value.replace("WHERE", "").replace("where", "").strip()
+                )
             case Function():
                 parsed_command.function = token.get_name()
             case IdentifierList():

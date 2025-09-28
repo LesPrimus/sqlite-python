@@ -10,7 +10,7 @@ __all__ = ["SqliteParser"]
 
 from app.models import DbHeader, LeafPageHeader, Cell, Record
 from app.models.tables import SchemaTable
-from app.utils import parse_command, ParsedCommand
+from app.utils import parse_command
 
 
 class SqliteParser:
@@ -244,10 +244,24 @@ class SqliteParser:
         [cell] = [c for c in schema_table.cells if c.tbl_name == table_name]
         return cell
 
-    def fetch_columns(self, *columns, table_name, verbose=False):
+    @classmethod
+    def filter_records(cls, *records, cell, sep="=", where=None):
+        if where:
+            column, param = map(str.strip, where.split(sep))
+            param = param.strip("'")
+            _index = cell.get_column_index(column)
+            filtered_records = [
+                record for record in records if record.values[_index] == param
+            ]
+            return filtered_records
+        else:
+            return records
+
+    def fetch_columns(self, *columns, table_name, where, verbose=False):
         schema_table = self.schema_table
         cell = self.get_cell(table_name)
         records = self.get_records(schema_table.db_header, cell)
+        records = self.filter_records(*records, cell=cell, where=where)
         indexes = [cell.get_column_index(column) for column in columns]
         results = [tuple(record.values[idx] for idx in indexes) for record in records]
         if verbose:
@@ -255,32 +269,14 @@ class SqliteParser:
                 print("|".join(map(str, result)))
         return results
 
-    def filter(self, *columns, table_name, where, sep="=", verbose=False):
-        schema_table = self.schema_table
-        cell = self.get_cell(table_name)
-        records = self.get_records(schema_table.db_header, cell)
-        column, param = map(str.strip, where.split(sep))
-        param = param.strip("'")
-        _index = cell.get_column_index(column)
-        filtered_records = [
-            record for record in records
-            if record.values[_index] == param
-        ]
-        indexes = [cell.get_column_index(column) for column in columns]
-        results = [tuple(record.values[idx] for idx in indexes) for record in filtered_records]
-        if verbose:
-            for result in results:
-                print("|".join(map(str, result)))
-        return results
-
     def sql(self, command):
         command = parse_command(command)
-        match command:
-            case ParsedCommand(function="COUNT", table_name=table_name):
-                return self.count_rows(table_name, verbose=True)
-            case ParsedCommand(function=None, table_name=table_name, columns=columns, where=str()):
-                return self.filter(*columns, table_name=table_name, where=command.where, verbose=True)
-            case ParsedCommand(columns=columns, table_name=table_name):
-                return self.fetch_columns(*columns, table_name=table_name, verbose=True)
-            case _:
-                raise ValueError(f"Invalid command: {command}")
+        if command.function == "count":
+            return self.count_rows(command.table_name, verbose=True)
+        else:
+            return self.fetch_columns(
+                *command.columns,
+                table_name=command.table_name,
+                where=command.where,
+                verbose=True,
+            )

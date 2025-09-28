@@ -43,8 +43,7 @@ class TestParser:
     def test_parser_filter(self, db_file):
         path = pathlib.Path(db_file.name)
         parser = SqliteParser(path)
-        expected = parser.sql(
-            "SELECT title, year FROM movie WHERE year == 1975"
-        )
+        expected = parser.sql("SELECT title, year FROM movie WHERE year == 1975")
 
         assert expected == [("Monty Python and the Holy Grail", 1975)]
+        assert 0, "Finish the test."
