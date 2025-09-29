@@ -245,7 +245,9 @@ class SqliteParser:
         return cell
 
     @classmethod
-    def filter_records(cls, *records, cell, sep="=", where=None):
+    def filter_records(
+        cls, *records: Record, cell: Cell, sep: str = "=", where: str | None = None
+    ):
         if where:
             column, param = map(str.strip, where.split(sep))
             param = param.strip("'")
