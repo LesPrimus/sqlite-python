@@ -31,12 +31,20 @@ class Page:
 
         for start, stop in pairwise(offsets):
             buffer.seek(start, os.SEEK_SET)
+            #
             payload_size = get_varint(buffer)
             row_id = get_varint(buffer)
+
+            # Read header size
+            header_start_pos = buffer.tell()
+            #
             header_size = get_varint(buffer)
-            serial_types = [
-                get_varint(buffer) for _ in range(header_size - 2)
-            ]
+
+            # Read serial type codes
+            serial_types = []
+            while buffer.tell() < header_start_pos + header_size:
+                serial_types.append(get_varint(buffer))
+
             cell = LeafCell(payload_size, row_id)
             for serial_type in serial_types:
                 to_read = get_serial_type_code(serial_type)
