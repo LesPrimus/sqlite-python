@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-__all__ = ["Cell"]
+__all__ = ["Cell", "LeafCell"]
 
 from app.utils import extract_columns
 
@@ -29,3 +29,9 @@ class Cell:
             if name == column_name:
                 return i
         return None
+
+@dataclass
+class LeafCell:
+    payload_size: int
+    row_id: int
+    payload: list[bytes] = field(default_factory=list)

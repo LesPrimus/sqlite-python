@@ -88,36 +88,36 @@ class SqliteParser:
                 raise ValueError(f"Invalid serial type code: {serial_type}")
 
     @classmethod
-    def get_serial_type_code(cls, n: int) -> int | str:
-        match n:
-            case 0:
-                return "NULL"
-            case 1:
-                return 1
-            case 2:
-                return 2
-            case 3:
-                return 3
-            case 4:
-                return 4
-            case 5:
-                return 6
-            case 6:
-                return 8
-            case 7:
-                return 8
-            case 8:
-                return 0
-            case 9:
-                return 0
-            case 10 | 11:
-                return "VARIABLE"
-            case _ if n >= 12 and n % 2 == 0:
-                return (n - 12) // 2
-            case _ if n >= 13 and n % 2 != 0:
-                return (n - 13) // 2
-            case _:
-                raise ValueError(f"Invalid serial type code: {n}")
+    # def get_serial_type_code(cls, n: int) -> int | str:
+    #     match n:
+    #         case 0:
+    #             return "NULL"
+    #         case 1:
+    #             return 1
+    #         case 2:
+    #             return 2
+    #         case 3:
+    #             return 3
+    #         case 4:
+    #             return 4
+    #         case 5:
+    #             return 6
+    #         case 6:
+    #             return 8
+    #         case 7:
+    #             return 8
+    #         case 8:
+    #             return 0
+    #         case 9:
+    #             return 0
+    #         case 10 | 11:
+    #             return "VARIABLE"
+    #         case _ if n >= 12 and n % 2 == 0:
+    #             return (n - 12) // 2
+    #         case _ if n >= 13 and n % 2 != 0:
+    #             return (n - 13) // 2
+    #         case _:
+    #             raise ValueError(f"Invalid serial type code: {n}")
 
     def decode_cell(self, buffer):
         record_size = self.get_varint(buffer)
