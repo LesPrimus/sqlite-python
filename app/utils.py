@@ -3,7 +3,7 @@ import struct
 from dataclasses import dataclass, field
 
 import sqlparse
-from sqlparse.sql import Function, Identifier, IdentifierList, Where
+from sqlparse.sql import Function, Identifier, IdentifierList, Where, Parenthesis
 from sqlparse.tokens import Keyword
 
 
@@ -91,6 +91,7 @@ def get_serial_type_code(n: int) -> int | str:
         case _:
             raise ValueError(f"Invalid serial type code: {n}")
 
+
 def get_varint(buffer):
     result = 0
     while True:
@@ -100,8 +101,7 @@ def get_varint(buffer):
             break
     return result
 
+
 def get_offsets(buffer, page_size, cell_count):
-    unpacked_offsets = struct.unpack(
-        f">{cell_count}H", buffer.read(cell_count * 2)
-    )
+    unpacked_offsets = struct.unpack(f">{cell_count}H", buffer.read(cell_count * 2))
     return list(sorted((page_size, *unpacked_offsets)))

@@ -1,10 +1,22 @@
 import pathlib
 from operator import itemgetter
 
+import pytest
+
 from app.parser import SqliteParser
 
 
 class TestParser:
+    @pytest.mark.parametrize("command", [".dbinfo"])
+    def test_print_page_size(self, command):
+        path = pathlib.Path("sample.db")
+        with SqliteParser(path) as parser:
+            expected = parser.handle_command(command)
+        assert expected == [
+            f"database page size: {parser.root_page.db_header.page_size}",
+            f"number of tables: {len(parser.root_page.cells)}",
+        ]
+
     def test_decode_cells(self, db_file):
         path = pathlib.Path(db_file.name)
         parser = SqliteParser(path)
