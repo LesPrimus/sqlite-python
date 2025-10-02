@@ -22,17 +22,19 @@ class TestParser:
         parser = SqliteParser(path)
         expected = parser.sql("SELECT name FROM apples")  # noqa
         assert sorted(expected) == sorted(
-            [('Fuji',), ('Golden Delicious',), ('Granny Smith',), ('Honeycrisp',)]
+            [("Fuji",), ("Golden Delicious",), ("Granny Smith",), ("Honeycrisp",)]
         )
 
     def test_parser_fetch_from_tables(self, db_file):
-        path = pathlib.Path(db_file.name)
+        path = pathlib.Path("sample.db")
         parser = SqliteParser(path)
-        expected = parser.sql("SELECT title, year FROM movie")  # noqa
+        expected = parser.sql("SELECT name, color FROM apples")  # noqa
         assert sorted(expected, key=itemgetter(0)) == sorted(
             [
-                ("And Now for Something Completely Different", 1971),
-                ("Monty Python and the Holy Grail", 1975),
+                ("Fuji", "Red"),
+                ("Golden Delicious", "Yellow"),
+                ("Granny Smith", "Light Green"),
+                ("Honeycrisp", "Blush Red"),
             ],
             key=itemgetter(0),
         )
