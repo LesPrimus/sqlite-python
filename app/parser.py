@@ -168,15 +168,18 @@ class SqliteParser:
             cells.append(self.decode_cell(io.BytesIO(cell)))
         return SchemaTable(db_header, page_header, cells)
 
-    def decode_record(self, buffer: io.BytesIO, columns: dict[str, str]) -> Record:
+    def decode_record(self, buffer: io.BytesIO) -> Record:
         record_size = self.get_varint(buffer)
         row_id = self.get_varint(buffer)
 
+        header_start = buffer.tell()
         # Read header size
-        _header_size = self.get_varint(buffer)
+        header_size = self.get_varint(buffer)
 
         # Read serial type codes
-        serial_types = [self.get_varint(buffer) for _ in range(len(columns))]
+        serial_types = []
+        while buffer.tell() < header_start + header_size:
+            serial_types.append(self.get_varint(buffer))
 
         # Now read the actual data
         values = []
@@ -207,7 +210,7 @@ class SqliteParser:
             buffer = io.BytesIO(cell_data)
 
             try:
-                record = self.decode_record(buffer, columns=root_cell.columns)
+                record = self.decode_record(buffer)
                 records.append(record)
             except Exception as e:
                 print(f"Error decoding record at offset {start}: {e}")
