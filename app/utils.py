@@ -1,4 +1,5 @@
 import re
+import struct
 from dataclasses import dataclass, field
 
 import sqlparse
@@ -57,3 +58,10 @@ def parse_command(command: str) -> ParsedCommand:
                 else:
                     parsed_command.columns = [token.value]
     return parsed_command
+
+def get_offsets(buffer, page_size, cell_count, page_nr=1):
+    unpacked_offsets = struct.unpack(f">{cell_count}H", buffer.read(cell_count * 2))
+    print(unpacked_offsets)
+    offsets = (page_size, *unpacked_offsets)
+    offsets = [offset + page_size * (page_nr - 1) for offset in offsets]
+    return list(sorted(offsets))

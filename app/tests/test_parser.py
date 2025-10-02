@@ -45,3 +45,9 @@ class TestParser:
         expected = parser.sql("SELECT name, color FROM apples WHERE color = 'Yellow'") # noqa
 
         assert expected == [('Golden Delicious', 'Yellow')]
+
+    def test_retrieve_data_using_a_full_table_scan(self):
+        path = pathlib.Path("superheroes.db")
+        parser = SqliteParser(path)
+        expected = parser.sql("SELECT id, name FROM superheroes WHERE eye_color = 'Pink Eyes'") # noqa
+        assert 0

@@ -4,13 +4,13 @@ import struct
 from functools import cached_property
 from itertools import pairwise
 from operator import attrgetter
-from os import PathLike
+from os import PathLike, sched_get_priority_max
 
 __all__ = ["SqliteParser"]
 
 from app.models import DbHeader, LeafPageHeader, Cell, Record
 from app.models.tables import SchemaTable
-from app.utils import parse_command
+from app.utils import parse_command, get_offsets
 
 
 class SqliteParser:
@@ -189,33 +189,43 @@ class SqliteParser:
 
         return Record(record_size=record_size, row_id=row_id, values=values)
 
-    def get_records(self, db_header: DbHeader, root_cell: Cell) -> list[Record]:
+    def read_page(self, page_number: int, page_size: int = 4096):
+
+        self.file_object.seek(page_size * (page_number - 1), os.SEEK_SET)
         page_header = LeafPageHeader.from_bytes(self.file_object)
-        page_size = db_header.page_size
-
-        cell_count = page_header.cell_count
-
-        unpacked_offsets = struct.unpack(
-            f">{cell_count}H", self.file_object.read(cell_count * 2)
-        )
-        offsets = sorted(
-            [page_size * root_cell.root_page]
-            + [off + page_size for off in unpacked_offsets]
-        )
+        offsets = [
+            int.from_bytes(self.file_object.read(2), "big") for _ in range(page_header.cell_count)
+        ]
 
         records = []
-        for start, stop in pairwise(offsets):
-            self.file_object.seek(start, os.SEEK_SET)
-            cell_data = self.file_object.read(stop - start)
-            buffer = io.BytesIO(cell_data)
+        for offset in sorted(offsets):
+            self.file_object.seek(offset + (page_size * (page_number - 1)), os.SEEK_SET)
+            record = self.decode_record(self.file_object)
+            records.append(record)
+        return records
 
-            try:
-                record = self.decode_record(buffer)
-                records.append(record)
-            except Exception as e:
-                print(f"Error decoding record at offset {start}: {e}")
-                continue
 
+    def get_records(self, db_header: DbHeader, root_cell: Cell) -> list[Record]:
+        page_size = db_header.page_size
+        page_header = LeafPageHeader.from_bytes(self.file_object)
+        if page_header.page_type == 5: # interior page
+            _right_most_pointer = int.from_bytes(self.file_object.read(4), "big")
+        cell_count = page_header.cell_count
+
+        offsets = [
+            int.from_bytes(self.file_object.read(2), "big") for _ in range(cell_count)
+        ]
+
+        interior_page_cells = []
+        for offset in offsets:
+            self.file_object.seek(offset + page_size, os.SEEK_SET)
+            page_number = int.from_bytes(self.file_object.read(4), "big")
+            row_id = self.get_varint(self.file_object)
+            interior_page_cells.append((page_number, row_id))
+
+        records = []
+        for page_number, row_id in interior_page_cells:
+            records.extend(self.read_page(page_number))
         return records
 
     def db_info(self):
@@ -266,6 +276,7 @@ class SqliteParser:
         schema_table = self.schema_table
         cell = self.get_cell(table_name)
         records = self.get_records(schema_table.db_header, cell)
+        return
         records = self.filter_records(*records, cell=cell, where=where)
         indexes = [cell.get_column_index(column) for column in columns]
         results = [tuple(record.values[idx] for idx in indexes) for record in records]
@@ -279,6 +290,7 @@ class SqliteParser:
         if command.function == "count":
             return self.count_rows(command.table_name, verbose=True)
         else:
+            print(command)
             return self.fetch_columns(
                 *command.columns,
                 table_name=command.table_name,
