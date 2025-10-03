@@ -15,7 +15,7 @@ class Cell:
     tbl_name: str
     root_page: int
     sql: bytes
-    columns: dict[str, str] = field(init=False)
+    columns: list[str] = field(init=False)
 
     def __post_init__(self):
         self.columns = self.extract_columns_simple()
@@ -25,7 +25,8 @@ class Cell:
         return extract_columns(sql)
 
     def get_column_index(self, column_name):
-        for i, name in enumerate(self.columns):
-            if name == column_name:
+        for i, column in enumerate(self.columns):
+            if column == column_name:
                 return i
-        return None
+        raise ValueError(f"Column {column_name} not found in table {self.tbl_name}")
+

@@ -264,9 +264,9 @@ class SqliteParser:
         if where:
             column, param = map(str.strip, where.split(sep))
             param = param.strip("'")
-            _index = cell.get_column_index(column)
+            # _index = cell.get_column_index(column)
             filtered_records = [
-                record for record in records if record.values[_index] == param
+                record for record in records if param in set(record.values)
             ]
             return filtered_records
         else:
@@ -276,10 +276,17 @@ class SqliteParser:
         schema_table = self.schema_table
         cell = self.get_cell(table_name)
         records = self.get_records(schema_table.db_header, cell)
-        return
         records = self.filter_records(*records, cell=cell, where=where)
-        indexes = [cell.get_column_index(column) for column in columns]
-        results = [tuple(record.values[idx] for idx in indexes) for record in records]
+        results = []
+        for record in records:
+            entry = []
+            for column in columns:
+                if column == "id":
+                    entry.append(record.row_id)
+                else:
+                    idx = cell.get_column_index(column)
+                    entry.append(record.values[idx])
+            results.append(tuple(entry))
         if verbose:
             for result in results:
                 print("|".join(map(str, result)))

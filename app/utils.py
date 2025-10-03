@@ -3,7 +3,7 @@ import struct
 from dataclasses import dataclass, field
 
 import sqlparse
-from sqlparse.sql import Function, Identifier, IdentifierList, Where
+from sqlparse.sql import Function, Identifier, IdentifierList, Where, Parenthesis
 from sqlparse.tokens import Keyword
 
 
@@ -15,20 +15,25 @@ class ParsedCommand:
     where: str | None = None
 
 
-def extract_columns(sql_statement: str) -> dict[str, str]:
-    # Pattern to match column definitions inside CREATE TABLE
-    pattern = r"CREATE\s+TABLE\s+\w+\s*\(\s*([^)]+)\)"
-    match = re.search(pattern, sql_statement)
-    columns = {}
-    if match:
-        columns_str = match.group(1)
-        for col in columns_str.split(","):
-            # Extract name and type from each column definition
-            col_match = re.match(r"\s*(\w+)\s+(\w+)\s*", col.strip())
-            if col_match:
-                name, type_ = col_match.groups()
-                columns[name] = type_
+def extract_columns(sql_statement: str) -> list[str]:
+    parsed = sqlparse.parse(sql_statement)[0]
+    columns = []
+
+    for token in parsed.tokens:
+        if isinstance(token, Parenthesis):
+            for sub_token in token.tokens:
+                if isinstance(sub_token, Identifier):
+                    columns.append(sub_token.value)
+                if isinstance(sub_token, IdentifierList):
+                    for sub_sub_token in sub_token.get_identifiers():
+                        if isinstance(sub_sub_token, Identifier):
+                            columns.append(sub_sub_token.value)
+
+    columns = [column.lower() for column in columns if
+               column not in {"autoincrement", "primary key", "not null", "text", "integer", "year"}]
+
     return columns
+
 
 
 def parse_command(command: str) -> ParsedCommand:
