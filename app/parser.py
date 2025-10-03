@@ -214,18 +214,21 @@ class SqliteParser:
         offsets = [
             int.from_bytes(self.file_object.read(2), "big") for _ in range(cell_count)
         ]
+        if page_header.page_type == 5:
+            interior_page_cells = []
+            for offset in offsets:
+                self.file_object.seek(offset + page_size, os.SEEK_SET)
+                page_number = int.from_bytes(self.file_object.read(4), "big")
+                row_id = self.get_varint(self.file_object)
+                interior_page_cells.append((page_number, row_id))
 
-        interior_page_cells = []
-        for offset in offsets:
-            self.file_object.seek(offset + page_size, os.SEEK_SET)
-            page_number = int.from_bytes(self.file_object.read(4), "big")
-            row_id = self.get_varint(self.file_object)
-            interior_page_cells.append((page_number, row_id))
-
-        records = []
-        for page_number, row_id in interior_page_cells:
-            records.extend(self.read_page(page_number))
-        return records
+            records = []
+            for page_number, row_id in interior_page_cells:
+                records.extend(self.read_page(page_number))
+            return records
+        else:
+            records =  self.read_page(root_cell.root_page)
+            return records
 
     def db_info(self):
         self.db_header = db_header = DbHeader.from_bytes(self.file_object)
@@ -296,6 +299,7 @@ class SqliteParser:
         if command.function == "count":
             return self.count_rows(command.table_name, verbose=True)
         else:
+            print(command)
             return self.fetch_columns(
                 *command.columns,
                 table_name=command.table_name,
