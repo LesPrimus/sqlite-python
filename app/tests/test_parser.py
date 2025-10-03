@@ -5,19 +5,25 @@ from app.parser import SqliteParser
 
 
 class TestParser:
-    def test_decode_cells(self, db_file):
-        path = pathlib.Path(db_file.name)
+    def test_print_number_of_tables(self):
+        path = pathlib.Path("sample.db")
         parser = SqliteParser(path)
-        [cell] = parser.schema_table.cells
-        assert cell.columns == {"title": "VARCHAR", "year": "INT", "score": "INT"}
+        expected = parser.handle_command(".dbinfo")
+        assert expected == (4096, 3)
 
-    def test_parser_count_rows(self):
+    def test_print_table_name(self):
+        path = pathlib.Path("sample.db")
+        parser = SqliteParser(path)
+        expected = parser.handle_command(".tables")
+        assert expected == ["apples", "oranges"]
+
+    def test_count_rows(self):
         path = pathlib.Path("sample.db")
         parser = SqliteParser(path)
         expected = parser.sql("SELECT count(*) FROM apples")  # noqa
         assert expected == 4
 
-    def test_parser_fetch_from_table(self, db_file):
+    def test_read_data_from_a_single_column(self, db_file):
         path = pathlib.Path("sample.db")
         parser = SqliteParser(path)
         expected = parser.sql("SELECT name FROM apples")  # noqa
@@ -25,7 +31,7 @@ class TestParser:
             [("Fuji",), ("Golden Delicious",), ("Granny Smith",), ("Honeycrisp",)]
         )
 
-    def test_parser_fetch_from_tables(self, db_file):
+    def test_read_data_from_multiple_columns(self, db_file):
         path = pathlib.Path("sample.db")
         parser = SqliteParser(path)
         expected = parser.sql("SELECT name, color FROM apples")  # noqa
@@ -39,7 +45,7 @@ class TestParser:
             key=itemgetter(0),
         )
 
-    def test_parser_filter(self, db_file):
+    def test_filter_data_with_a_where_clause(self, db_file):
         path = pathlib.Path("sample.db")
         parser = SqliteParser(path)
         expected = parser.sql("SELECT name, color FROM apples WHERE color = 'Yellow'")  # noqa
@@ -50,7 +56,7 @@ class TestParser:
         path = pathlib.Path("superheroes.db")
         parser = SqliteParser(path)
         expected = parser.sql(
-            "SELECT id, name FROM superheroes WHERE eye_color = 'Pink Eyes'" # noqa
+            "SELECT id, name FROM superheroes WHERE eye_color = 'Pink Eyes'"  # noqa
         )  # noqa
         assert expected == [
             (297, "Stealth (New Earth)"),

@@ -40,9 +40,9 @@ class SqliteParser:
     def handle_command(self, command: str):
         match command:
             case ".dbinfo":
-                return self.db_info()
+                return self.db_info(verbose=True)
             case ".tables":
-                return self.tables()
+                return self.tables(verbose=True)
             case _:
                 return self.sql(command)
 
@@ -227,24 +227,27 @@ class SqliteParser:
                 records.extend(self.read_page(page_number))
             return records
         else:
-            records =  self.read_page(root_cell.root_page)
+            records = self.read_page(root_cell.root_page)
             return records
 
-    def db_info(self):
+    def db_info(self, verbose=False):
         self.db_header = db_header = DbHeader.from_bytes(self.file_object)
         self.page_header = page_header = LeafPageHeader.from_bytes(self.file_object)
-        print("database page size: ", db_header.page_size)
-        print("number of tables: ", page_header.cell_count)
-        return db_header, page_header
+        if verbose:
+            print("database page size: ", db_header.page_size)
+            print("number of tables: ", page_header.cell_count)
+        return db_header.page_size, page_header.cell_count
 
-    def tables(self):
+    def tables(self, verbose=False):
         schema_table = self.schema_table
-        print(
-            " ".join(
-                sorted(map(attrgetter("tbl_name"), schema_table.cells), key=str.lower)  # noqa
-            )
-        )  # noqa
-        return
+        tables = sorted(
+            cell.tbl_name
+            for cell in schema_table.cells
+            if cell.tbl_name != "sqlite_sequence"
+        )
+        if verbose:
+            print(" ".join(tables))
+        return tables
 
     def count_rows(self, table_name, *, verbose=False):
         schema_table = self.schema_table
