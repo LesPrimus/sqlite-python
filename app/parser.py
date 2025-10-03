@@ -3,7 +3,6 @@ import os
 import struct
 from functools import cached_property
 from itertools import pairwise
-from operator import attrgetter
 from os import PathLike
 
 __all__ = ["SqliteParser"]
