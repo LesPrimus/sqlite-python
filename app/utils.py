@@ -29,11 +29,14 @@ def extract_columns(sql_statement: str) -> list[str]:
                         if isinstance(sub_sub_token, Identifier):
                             columns.append(sub_sub_token.value)
 
-    columns = [column.lower() for column in columns if
-               column not in {"autoincrement", "primary key", "not null", "text", "integer", "year"}]
+    columns = [
+        column.lower()
+        for column in columns
+        if column
+        not in {"autoincrement", "primary key", "not null", "text", "integer", "year"}
+    ]
 
     return columns
-
 
 
 def parse_command(command: str) -> ParsedCommand:
@@ -63,6 +66,7 @@ def parse_command(command: str) -> ParsedCommand:
                 else:
                     parsed_command.columns = [token.value]
     return parsed_command
+
 
 def get_offsets(buffer, page_size, cell_count, page_nr=1):
     unpacked_offsets = struct.unpack(f">{cell_count}H", buffer.read(cell_count * 2))

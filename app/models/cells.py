@@ -29,4 +29,3 @@ class Cell:
             if column == column_name:
                 return i
         raise ValueError(f"Column {column_name} not found in table {self.tbl_name}")
-

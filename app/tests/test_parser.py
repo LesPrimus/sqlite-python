@@ -42,12 +42,21 @@ class TestParser:
     def test_parser_filter(self, db_file):
         path = pathlib.Path("sample.db")
         parser = SqliteParser(path)
-        expected = parser.sql("SELECT name, color FROM apples WHERE color = 'Yellow'") # noqa
+        expected = parser.sql("SELECT name, color FROM apples WHERE color = 'Yellow'")  # noqa
 
-        assert expected == [('Golden Delicious', 'Yellow')]
+        assert expected == [("Golden Delicious", "Yellow")]
 
     def test_retrieve_data_using_a_full_table_scan(self):
         path = pathlib.Path("superheroes.db")
         parser = SqliteParser(path)
-        expected = parser.sql("SELECT id, name FROM superheroes WHERE eye_color = 'Pink Eyes'") # noqa
-        assert 0
+        expected = parser.sql(
+            "SELECT id, name FROM superheroes WHERE eye_color = 'Pink Eyes'" # noqa
+        )  # noqa
+        assert expected == [
+            (297, "Stealth (New Earth)"),
+            (790, "Tobias Whale (New Earth)"),
+            (1085, "Felicity (New Earth)"),
+            (2729, "Thrust (New Earth)"),
+            (3289, "Angora Lapin (New Earth)"),
+            (3913, "Matris Ater Clementia (New Earth)"),
+        ]

@@ -4,13 +4,13 @@ import struct
 from functools import cached_property
 from itertools import pairwise
 from operator import attrgetter
-from os import PathLike, sched_get_priority_max
+from os import PathLike
 
 __all__ = ["SqliteParser"]
 
 from app.models import DbHeader, LeafPageHeader, Cell, Record
 from app.models.tables import SchemaTable
-from app.utils import parse_command, get_offsets
+from app.utils import parse_command
 
 
 class SqliteParser:
@@ -190,11 +190,11 @@ class SqliteParser:
         return Record(record_size=record_size, row_id=row_id, values=values)
 
     def read_page(self, page_number: int, page_size: int = 4096):
-
         self.file_object.seek(page_size * (page_number - 1), os.SEEK_SET)
         page_header = LeafPageHeader.from_bytes(self.file_object)
         offsets = [
-            int.from_bytes(self.file_object.read(2), "big") for _ in range(page_header.cell_count)
+            int.from_bytes(self.file_object.read(2), "big")
+            for _ in range(page_header.cell_count)
         ]
 
         records = []
@@ -204,11 +204,10 @@ class SqliteParser:
             records.append(record)
         return records
 
-
     def get_records(self, db_header: DbHeader, root_cell: Cell) -> list[Record]:
         page_size = db_header.page_size
         page_header = LeafPageHeader.from_bytes(self.file_object)
-        if page_header.page_type == 5: # interior page
+        if page_header.page_type == 5:  # interior page
             _right_most_pointer = int.from_bytes(self.file_object.read(4), "big")
         cell_count = page_header.cell_count
 
@@ -297,7 +296,6 @@ class SqliteParser:
         if command.function == "count":
             return self.count_rows(command.table_name, verbose=True)
         else:
-            print(command)
             return self.fetch_columns(
                 *command.columns,
                 table_name=command.table_name,
