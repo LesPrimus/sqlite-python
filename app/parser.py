@@ -302,7 +302,6 @@ class SqliteParser:
         if command.function == "count":
             return self.count_rows(command.table_name, verbose=True)
         else:
-            print(command)
             return self.fetch_columns(
                 *command.columns,
                 table_name=command.table_name,
