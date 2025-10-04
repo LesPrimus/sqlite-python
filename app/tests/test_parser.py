@@ -66,3 +66,9 @@ class TestParser:
             (3289, "Angora Lapin (New Earth)"),
             (3913, "Matris Ater Clementia (New Earth)"),
         ]
+
+    # def test_retrieve_data_using_an_index(self):
+    #     path = pathlib.Path("companies.db")
+    #     parser = SqliteParser(path)
+    #     expected = parser.sql("SELECT id, name FROM companies WHERE country = 'eritrea'")  # noqa
+    #     assert 0

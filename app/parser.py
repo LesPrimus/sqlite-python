@@ -262,16 +262,13 @@ class SqliteParser:
         return cell
 
     @classmethod
-    def filter_records(
-        cls, *records: Record, cell: Cell, sep: str = "=", where: str | None = None
-    ):
-        if where:
-            column, param = map(str.strip, where.split(sep))
-            param = param.strip("'")
-            # _index = cell.get_column_index(column)
-            filtered_records = [
-                record for record in records if param in set(record.values)
-            ]
+    def filter_records(cls, *records: Record, **filters):
+        if filters:
+            filtered_records = []
+            for filter_key, filter_value in filters.items():
+                for record in records:
+                    if filter_value in set(record.values):
+                        filtered_records.append(record)
             return filtered_records
         else:
             return records
@@ -280,7 +277,7 @@ class SqliteParser:
         schema_table = self.schema_table
         cell = self.get_cell(table_name)
         records = self.get_records(schema_table.db_header, cell)
-        records = self.filter_records(*records, cell=cell, where=where)
+        records = self.filter_records(*records, **where)
         results = []
         for record in records:
             entry = []

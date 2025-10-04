@@ -1,6 +1,7 @@
 import re
 import struct
 from dataclasses import dataclass, field
+from typing import Any
 
 import sqlparse
 from sqlparse.sql import Function, Identifier, IdentifierList, Where, Parenthesis
@@ -12,7 +13,7 @@ class ParsedCommand:
     table_name: str = field(default="")
     columns: list[str] = field(default_factory=list)
     function: str | None = None
-    where: str | None = None
+    where: dict[str, Any] = field(default_factory=dict)
 
 
 def extract_columns(sql_statement: str) -> list[str]:
@@ -48,9 +49,10 @@ def parse_command(command: str) -> ParsedCommand:
             from_seen = True
         match token:
             case Where():
-                parsed_command.where = (
-                    token.value.replace("WHERE", "").replace("where", "").strip()
-                )
+                where = token.value.replace("WHERE", "").replace("where", "").strip()
+                column, param = map(str.strip, where.split("="))
+                param = param.strip("'")
+                parsed_command.where = {column: param}
             case Function():
                 parsed_command.function = token.get_name()
             case IdentifierList():
